@@ -21,6 +21,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 require_once( WP_PLUGIN_DIR . '/dntly/lib/dntly.class.php');
 require_once('lib/dntly_to_dpo.class.php');
 
+define('DNTLYDPO_VERSION', '0.1.0');
+define('DNTLYDPO_DEBUG', false);
+
 //define('DNTLYDPO_PLUGIN_URL', plugin_dir_url( __FILE__ ));
 //define('DNTLYDPO_PLUGIN_BASENAME', plugin_basename(__FILE__));
 // swap these out once we are not developing inside the project

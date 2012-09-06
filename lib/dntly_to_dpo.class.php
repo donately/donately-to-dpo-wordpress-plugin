@@ -3,10 +3,9 @@
 /*
 
 Description:  DPO API integration class
-Version:      0.1.0
 Author:       5ifty&5ifty - A humanitarian focused creative agency
 Author URI:   http://www.fiftyandfifty.org/
-Contributors: bryan shanaver
+Contributors: shanaver
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
@@ -64,10 +63,10 @@ class DNTLY_TO_DPO extends DNTLY_API {
 		$user_defined_field_array = array(
 			$matching_id 	= $id, //Specify either a donor_id value if updating a donor record, a gift_id value if updating a gift record or an other_id value if updating a dpotherinfo table value (see dp_saveotherinfo)
 			$field_name 	= "'" . $udf_field_name . "'",
-			$data_type 		= "'" . $udf_field_values['data_type'] . "'", //C- Character, D-Date, N- Numeric
-			$char_value 	= "'" . $udf_field_values['char_value'] . "'", //Null if not a Character field
-			$date_value 	= "'" . $udf_field_values['date_value'] . "'", //Null if not a Date field
-			$number_value = "'" . $udf_field_values['number_value'] . "'", //Null if not a Number field
+			$data_type 		= "'" . (isset($udf_field_values['data_type']) ? $udf_field_values['data_type'] : "") . "'", //C- Character, D-Date, N- Numeric
+			$char_value 	= "'" . (isset($udf_field_values['char_value']) ? $udf_field_values['char_value'] : "") . "'", //Null if not a Character field
+			$date_value 	= "'" . (isset($udf_field_values['date_value']) ? $udf_field_values['date_value'] : "") . "'", //Null if not a Date field
+			$number_value = "'" . (isset($udf_field_values['number_value']) ? $udf_field_values['number_value'] : "") . "'", //Null if not a Number field
 			$user_id 			= "'" . $this->dpo_login . "'"
 		);
 		$params = "action=dp_save_udf_xml&params=" . implode($user_defined_field_array, ',');
@@ -263,8 +262,8 @@ class DNTLY_TO_DPO extends DNTLY_API {
 		else{
 			$recurring = false;
 			$dpo_record_type = 'G';
-			$dpo_gl_code = $tracking_codes['subsource'];
-			$dpo_solicit_code = $tracking_codes['source'];
+			$dpo_gl_code = (isset($tracking_codes['subsource']) ? $tracking_codes['subsource'] : '');
+			$dpo_solicit_code = (isset($tracking_codes['source']) ? $tracking_codes['source'] : '');
 		}
 		
 		$save_donation_params_array = array(
@@ -275,7 +274,7 @@ class DNTLY_TO_DPO extends DNTLY_API {
 			$amount 					= $donation->amount,
 			$gl_code 				= "'".$dpo_gl_code."'",
 			$solicit_code 			= "'".$dpo_solicit_code."'",
-			$sub_solicit_code 	= "'".$tracking_codes['utm_campaign']."'",
+			$sub_solicit_code 	= "'".(isset($tracking_codes['utm_campaign']) ? $tracking_codes['utm_campaign'] : '')."'",
 			$gift_type 				= "'".$dpo_gift_type."'",
 			$split_gift 			= "'N'",
 			$pledge_payment 		= "'N'",
@@ -293,7 +292,7 @@ class DNTLY_TO_DPO extends DNTLY_API {
 			$receipt 				= "'N'",
 			$old_amount 			= "''",
 			$user_id 				= "'".$this->dpo_login."'",			
-			$campaign 				= "'".$tracking_codes['campaign']."'",
+			$campaign 				= "'".(isset($tracking_codes['campaign']) ? $tracking_codes['campaign'] : '')."'",
 			$membership_type 		= "''",
 			$membership_level 	= "''",
 			$membership_enr_date = "''",
@@ -354,10 +353,10 @@ class DNTLY_TO_DPO extends DNTLY_API {
 						
 		$response_object->data = array(
 			'dpo_donation_id' => $donor_perfect_donation_id,
-			'dpo_addntl_donation_id' => $additional_response_object->data,
-			'dpo_origin_type_donation_id' => $origin_type->data,
-			'dpo_dntly_id_donation_id' => $dntly_id->data,
-			'dpo_anon_gift_donation_id' => $anon_gift->data,
+			'dpo_addntl_donation_id' => (isset($additional_response_object->data) ? $additional_response_object->data : ''),
+			'dpo_origin_type_donation_id' => (isset($origin_type->data) ? $origin_type->data : ''),
+			'dpo_dntly_id_donation_id' => (isset($dntly_id->data) ? $dntly_id->data : ''),
+			'dpo_anon_gift_donation_id' => (isset($anon_gift->data) ? $anon_gift->data : ''),
 		);
 		
 		return $response_object;
@@ -558,7 +557,7 @@ Edit COMPLETION_CODE NOMONEY Financially Unable To Continue
 				array_push($timer, array('finish find_donation_in_dpo' => date("H:i:s")));
 			}
 				
-			if( $dpo_donation->data ){
+			if( isset($dpo_donation->data) ){
 				$found_message .=  " - Found dpo donation! id:" . $dpo_donation = $dpo_donation->data;				
 			}
 			else{
