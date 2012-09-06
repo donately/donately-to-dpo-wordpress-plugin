@@ -22,11 +22,13 @@ class DNTLY_TO_DPO extends DNTLY_API {
 		
 	var $dpo_endpoint = "https://www.donorperfect.net/prod/xmlrequest.asp";
 	var $dpo_options;
+	var $dpo_login;
 	var $origintype = "DONATELY";	
 		
 	function __construct() {
 		parent::__construct();
 		$this->dpo_options = get_option('dpo_options');
+		$this->dpo_login = $this->dpo_options['user'];
 	}
 		
 	function create_response_object(){
@@ -123,6 +125,10 @@ class DNTLY_TO_DPO extends DNTLY_API {
 						}
 					}	
 				}
+				else{
+					$response_object->success = false;
+					$response_object->match_type = "not found";
+				}
 			}
 		}
 		
@@ -145,13 +151,13 @@ class DNTLY_TO_DPO extends DNTLY_API {
 			$prof_title = "''",
 			$opt_line = "''",
 			$address = "'" . $donation->street_address . "'",
-			$address2 = "'" . $donation->street_address2 . "'",
+			$address2 = "'" . $donation->street_address_2 . "'",
 			$city = "'" . $donation->city . "'",
 			$state = "'" . $donation->state . "'",
 			$zip = "'" . $donation->zip_code . "'",
 			$country = "'" . $donation->country . "'",
 			$address_type = "''",
-			$home_phone = "'" . $donation->phone_number . "'",
+			$home_phone = "''", // . $donation->phone_number . "'",
 			$business_phone = "''",
 			$fax_phone = "''",
 			$mobile_phone = "''",			
@@ -166,12 +172,20 @@ class DNTLY_TO_DPO extends DNTLY_API {
 		$params = "action=dp_savedonor&params=" . implode($save_donor_params_array, ',');
 		
 		$response_object = $this->make_dpo_api_request($params);
+
 		if($response_object->success){
-			foreach($response_object->dpo_response->record->field->attributes() as $att){
-				if( (int)$att > 1 ){
-					$donor_perfect_donor_id = (int)$att;
-				}
-			}	
+			if($response_object->dpo_response->record){
+				foreach($response_object->dpo_response->record->field->attributes() as $att){
+					if( (int)$att > 1 ){
+						$donor_perfect_donor_id = (int)$att;
+					}
+				}	
+			}
+			else{
+				$response_object->success = false;
+				$response_object->message[0] = 'unknown error';
+				return $response_object;
+			}
 		}
 		else{
 			return $response_object;
@@ -215,7 +229,7 @@ class DNTLY_TO_DPO extends DNTLY_API {
 	
 	function find_donation_in_dpo($donation, $dpo_donor_id){
 		$params  = "action=SELECT TOP 1 dpgift.gift_id, dpgiftudf.dntly_gift_id FROM dpgift, dpgiftudf WHERE dpgift.gift_id=dpgiftudf.gift_id ";
-		$params .= "AND dpgiftudf.dntly_gift_id='{$donation->id}'"; //"AND dpgift.donor_id='{$dpo_donor_id}' AND dpgift.amount='{$donation->donation_amount}' ";
+		$params .= "AND dpgiftudf.dntly_gift_id='{$donation->id}'"; //"AND dpgift.donor_id='{$dpo_donor_id}' AND dpgift.amount='{$donation->amount}' ";
 		$response_object = $this->make_dpo_api_request($params);
 		if($response_object->success && $response_object->dpo_response->record){
 			foreach($response_object->dpo_response->record->field->attributes() as $att){
@@ -258,7 +272,7 @@ class DNTLY_TO_DPO extends DNTLY_API {
 			$donor_id 				= $dpo_donor_id,
 			$record_type 			= "'".$dpo_record_type."'",
 			$gift_date 				= "'".$this->convert_date_for_dpo($donation->created_at)."'",  
-			$amount 					= $donation->donation_amount,
+			$amount 					= $donation->amount,
 			$gl_code 				= "'".$dpo_gl_code."'",
 			$solicit_code 			= "'".$dpo_solicit_code."'",
 			$sub_solicit_code 	= "'".$tracking_codes['utm_campaign']."'",
@@ -309,7 +323,7 @@ class DNTLY_TO_DPO extends DNTLY_API {
 		if($recurring){
 			// if there is no trans_id - this must be the parent recurring
 			if($donation->transaction_id = ''){
-				$recurring_parent_params  = "action=UPDATE dpgift SET bill='{$donation->donation_amount}', frequency='M', start_date='{$this->convert_date_for_dpo($donation->created_at)}' ";
+				$recurring_parent_params  = "action=UPDATE dpgift SET bill='{$donation->amount}', frequency='M', start_date='{$this->convert_date_for_dpo($donation->created_at)}' ";
 				$recurring_parent_params .= "WHERE gift_id='{$donor_perfect_donation_id}'"; 
 				$recurring_response = $this->make_dpo_api_request($recurring_parent_params);
 			}
@@ -320,7 +334,7 @@ class DNTLY_TO_DPO extends DNTLY_API {
 				}else{
 					return $response_object;
 				}
-				$recurring_child_params  = "action=UPDATE dpgift SET plink='{$dpo_parent_id}', bill='{$donation->donation_amount}', frequency='M', start_date='{$this->convert_date_for_dpo($donation->created_at)}' ";
+				$recurring_child_params  = "action=UPDATE dpgift SET plink='{$dpo_parent_id}', bill='{$donation->amount}', frequency='M', start_date='{$this->convert_date_for_dpo($donation->created_at)}' ";
 				$recurring_child_params .= "WHERE gift_id='{$donor_perfect_donation_id}'"; 
 				$recurring_response = $this->make_dpo_api_request($recurring_child_params);
 			}
@@ -492,7 +506,7 @@ Edit COMPLETION_CODE NOMONEY Financially Unable To Continue
 		return $split_date2[1] . "/" . $split_date2[2] . "/" . $split_date2[0];
 	}
 	
-	function sync_donations($count=2, $offset=320){
+	function sync_donations($count=2, $offset=0){
 		global $dntly_debugging;
 		
 		$timer = array();
@@ -501,7 +515,7 @@ Edit COMPLETION_CODE NOMONEY Financially Unable To Continue
 		array_push($timer, array('start get_donations' => date("H:i:s")));
 		$get_donations = $this->make_api_request("get_donations", true, array('count' => $count,'offset' => $offset));
 		array_push($timer, array('finish get_donations' => date("H:i:s")));
-				
+
 		foreach($get_donations->donations as $d){
 			$donation_may_exist = true;
 			$dpo_donation = new stdClass();
@@ -509,12 +523,12 @@ Edit COMPLETION_CODE NOMONEY Financially Unable To Continue
 			$created_message = null;
 			$found_message = null;
 			$error_message = null;
-			$this_dntly_donation = "$" . $d->donation_amount . " " . ($d->recurring?'recurring':'one-time') . " donation by " . $d->email . " created at " . $d->created_at;
+			$this_dntly_donation = "$" . $d->amount . " " . ($d->recurring?'recurring':'one-time') . " donation by " . $d->email . " created at " . $d->created_at;
 
 			array_push($timer, array('start find_donor_in_dpo' => date("H:i:s")));
 			$dpo_donor = $this->find_donor_in_dpo($d);
 			array_push($timer, array('finish find_donor_in_dpo' => date("H:i:s")));	
-						
+
 			if( $dpo_donor->success ){
 				//update_donor_in_dpo() TODO: flesh this out
 				$found_message .= " - Found dpo user! (matched: ".$dpo_donor->match_type.") id:" . $dpo_donor_id = $dpo_donor->data;
@@ -529,7 +543,7 @@ Edit COMPLETION_CODE NOMONEY Financially Unable To Continue
 					$created_message .=  " - Created dpo user! " . $dpo_donor_id = $dpo_donor->data['dpo_donor_id'];
 				}
 				else{
-					$error_message .= " - Error creating dpo user! \n-- " . $dpo_donor->message[0];;
+					$error_message .= " - Error creating dpo user! \n-- " . $dpo_donor->message[0];
 				}					
 			}
 					

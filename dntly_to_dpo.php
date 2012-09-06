@@ -21,9 +21,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 require_once( WP_PLUGIN_DIR . '/dntly/lib/dntly.class.php');
 require_once('lib/dntly_to_dpo.class.php');
 
+//define('DNTLYDPO_PLUGIN_URL', plugin_dir_url( __FILE__ ));
+//define('DNTLYDPO_PLUGIN_BASENAME', plugin_basename(__FILE__));
+// swap these out once we are not developing inside the project
+define('DNTLYDPO_PLUGIN_URL', plugins_url() . '/dntly_to_dpo/');
+define('DNTLYDPO_PLUGIN_BASENAME', 'dntly_to_dpo/dntly_to_dpo.php');
+
 // admin styles & scripts
 function dntlydpo_admin_scripts_styles(){
-	wp_register_script( 'dntlydpo-scripts', plugins_url('dntly_to_dpo', dirname(__FILE__)).'/lib/dntlydpo.js' );
+	wp_register_script( 'dntlydpo-scripts', DNTLYDPO_PLUGIN_URL . '/lib/dntlydpo.js' );
 	wp_enqueue_script( 'dntlydpo-scripts' );
 }
 add_action('admin_init', 'dntlydpo_admin_scripts_styles');
@@ -45,8 +51,7 @@ function dntlydpo_plugin_settings_link($links) {
   array_unshift($links, $settings_link); 
   return $links; 
 }
-$plugin = plugin_basename(__FILE__); 
-add_filter("plugin_action_links_$plugin", 'dntlydpo_plugin_settings_link' );
+add_filter("plugin_action_links_" . DNTLYDPO_PLUGIN_BASENAME, 'dntlydpo_plugin_settings_link' );
 
 // basic obfuscating of password
 function encode_password($sData){
