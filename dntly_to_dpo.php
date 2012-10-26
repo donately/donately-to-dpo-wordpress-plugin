@@ -4,7 +4,7 @@
 Plugin Name:  Dntly 2 DPO
 Plugin URI:   http://www.donately.com
 Description:  API Integration with the Donately donation platform - copy Donately donations into Donor Perfect for CRM management functions
-Version:      0.1.0
+Version:      0.7.0
 Author:       5ifty&5ifty
 Author URI:   https://www.fiftyandfifty.org/
 Contributors: shanaver
@@ -18,22 +18,23 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 */
 
-require_once( WP_PLUGIN_DIR . '/dntly/lib/dntly.class.php');
-require_once('lib/dntly_to_dpo.class.php');
+define('DNTLYDPO_VERSION', '0.7.0');
+define('DNTLYPO_OVERLAP_MAX', 5);
 
-define('DNTLYDPO_VERSION', '0.1.0');
-define('DNTLYDPO_DEBUG', false);
+define('DNTLYDPO_PLUGIN_URL', plugin_dir_url( __FILE__ ));
+define('DNTLYDPO_PLUGIN_PATH', __DIR__ );
+define('DNTLYDPO_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
-//define('DNTLYDPO_PLUGIN_URL', plugin_dir_url( __FILE__ ));
-//define('DNTLYDPO_PLUGIN_BASENAME', plugin_basename(__FILE__));
-// swap these out once we are not developing inside the project
-define('DNTLYDPO_PLUGIN_URL', plugins_url() . '/dntly_to_dpo/');
-define('DNTLYDPO_PLUGIN_BASENAME', 'dntly_to_dpo/dntly_to_dpo.php');
+require_once( DNTLY_PLUGIN_PATH . '/lib/dntly.class.php');
+require_once( DNTLYDPO_PLUGIN_PATH . '/lib/dntly_to_dpo.class.php');
 
 // admin styles & scripts
 function dntlydpo_admin_scripts_styles(){
 	wp_register_script( 'dntlydpo-scripts', DNTLYDPO_PLUGIN_URL . '/lib/dntlydpo.js' );
+	wp_register_style( 'dntly-style', DNTLY_PLUGIN_URL . 'lib/dntlydpo.css' );
+	
 	wp_enqueue_script( 'dntlydpo-scripts' );
+	wp_enqueue_style( 'dntly-style' );
 }
 add_action('admin_init', 'dntlydpo_admin_scripts_styles');
 
@@ -79,19 +80,52 @@ register_activation_hook(__FILE__,'dntlydpo_activate');
 
 function dntlydpo_deactivate(){
 	dntly_transaction_logging('Donately 2 DPO Plugin - *Deactivated*');
+	dntlydpo_deactivate_cron_syncing();
 }
 register_deactivation_hook(__FILE__,'dntlydpo_deactivate');
 
+
+
 /* 
-
-Donor Perfect (DPO) integration functions
-
+	Cron Functions
 */
 
-
-function dntly_sync_donations(){
-	$dntly_dpo = new DNTLY_TO_DPO;
-	$dntly_dpo->sync_donations();
+// function for syncing everything
+function dntlydpo_sync_everything() {
+	dntlydpo_sync_donations_schedule();
 }
-add_action( 'wp_ajax_dntly_sync_donations', 'dntly_sync_donations' );
+add_action('dntlydpo_donation_syncing_cron', 'dntlydpo_sync_everything');
+
+// function for adding the syncing everything cron
+function dntlydpo_activate_cron_syncing() {
+	if( !wp_get_schedule('dntlydpo_donation_syncing_cron') ){
+		dntly_transaction_logging('Donately 2 DPO Plugin - start hourly scheduler');
+		wp_schedule_event(time(), 'hourly', 'dntlydpo_donation_syncing_cron');
+	}
+}
+
+// function for removing the syncing everything cron
+function dntlydpo_deactivate_cron_syncing() {
+	if( wp_get_schedule('dntlydpo_donation_syncing_cron') ){
+		dntly_transaction_logging('Donately 2 DPO Plugin - stop hourly scheduler');
+		wp_clear_scheduled_hook('dntlydpo_donation_syncing_cron');
+	}
+}
+
+
+/* 
+		Donor Perfect (DPO) integration functions
+*/
+
+function dntlydpo_sync_donations_schedule(){
+	$dntly_dpo = new DNTLY_TO_DPO;
+	$dntly_dpo->process_donately_donations(10);
+}
+
+
+function dntlydpo_sync_donations(){
+	$dntly_dpo = new DNTLY_TO_DPO;
+	$dntly_dpo->process_donately_donations(2);
+}
+add_action( 'wp_ajax_dntlydpo_sync_donations', 'dntlydpo_sync_donations' );
 
